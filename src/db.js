@@ -61,18 +61,45 @@ db.exec(`
   );
 `);
 
+// Columns added after the first release; added here so older databases keep working.
+const productColumns = db.prepare('PRAGMA table_info(products)').all().map((c) => c.name);
+const NEW_PRODUCT_COLUMNS = {
+  category: "TEXT NOT NULL DEFAULT 'Grocery'",
+  list_price: 'REAL',
+  rating: 'REAL NOT NULL DEFAULT 0',
+  review_count: 'INTEGER NOT NULL DEFAULT 0',
+};
+for (const [column, type] of Object.entries(NEW_PRODUCT_COLUMNS)) {
+  if (!productColumns.includes(column)) db.exec(`ALTER TABLE products ADD COLUMN ${column} ${type}`);
+}
+
+// [id, name, category, price, list price (null = no discount), rating, reviews, emoji]
 const SEED_PRODUCTS = [
-  [1, 'Apple', 0.99, '🍎'],
-  [2, 'Bread', 2.49, '🍞'],
-  [3, 'Milk', 3.29, '🥛'],
-  [4, 'Cheese', 5.75, '🧀'],
-  [5, 'Coffee', 8.99, '☕'],
-  [6, 'Eggs (12)', 4.19, '🥚'],
+  [1, 'Fresh Gala Apples, 3 lb Bag', 'Grocery', 4.99, 5.49, 4.6, 2341, '🍎'],
+  [2, 'Artisan Sourdough Bread Loaf, 24 oz', 'Grocery', 5.49, null, 4.4, 812, '🍞'],
+  [3, 'Organic Whole Milk, 1 Gallon', 'Grocery', 6.29, null, 4.7, 1530, '🥛'],
+  [4, 'Aged White Cheddar Cheese, 8 oz', 'Grocery', 5.75, 6.99, 4.5, 967, '🧀'],
+  [5, 'Medium Roast Whole Bean Coffee, 2 lb', 'Grocery', 18.99, 24.99, 4.6, 8754, '☕'],
+  [6, 'Large Brown Eggs, 12 Count', 'Grocery', 4.19, null, 4.3, 642, '🥚'],
+  [7, 'Wireless Noise Cancelling Headphones', 'Electronics', 129.99, 179.99, 4.5, 15872, '🎧'],
+  [8, 'Smart Watch with Heart Rate Monitor', 'Electronics', 89.99, 119.99, 4.2, 6321, '⌚'],
+  [9, 'Portable Bluetooth Speaker, Waterproof', 'Electronics', 39.99, 49.99, 4.6, 22104, '🔊'],
+  [10, 'Non-Stick Frying Pan, 12 inch', 'Home & Kitchen', 29.99, 39.99, 4.4, 4410, '🍳'],
+  [11, 'Insulated Stainless Steel Tumbler, 32 oz', 'Home & Kitchen', 24.95, null, 4.8, 31987, '🥤'],
+  [12, 'Lavender Scented Soy Candle, 14 oz', 'Home & Kitchen', 14.99, null, 4.3, 1208, '🕯️'],
+  [13, 'The Pragmatic Programmer (Paperback)', 'Books', 39.99, 49.99, 4.8, 5523, '📘'],
+  [14, "Beginner's Cookbook: 100 Easy Recipes", 'Books', 17.99, null, 4.5, 733, '📗'],
 ];
 
-const insertProduct = db.prepare(
-  'INSERT OR IGNORE INTO products (id, name, price, emoji) VALUES (?, ?, ?, ?)'
+// Insert new products and refresh existing ones so the catalog stays current.
+const upsertProduct = db.prepare(
+  `INSERT INTO products (id, name, category, price, list_price, rating, review_count, emoji)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+   ON CONFLICT (id) DO UPDATE SET
+     name = excluded.name, category = excluded.category, price = excluded.price,
+     list_price = excluded.list_price, rating = excluded.rating,
+     review_count = excluded.review_count, emoji = excluded.emoji`
 );
-for (const p of SEED_PRODUCTS) insertProduct.run(...p);
+for (const p of SEED_PRODUCTS) upsertProduct.run(...p);
 
 export default db;

@@ -35,9 +35,9 @@ Authenticated routes need `Authorization: Bearer <token>` (the token comes from 
 | POST   | `/api/login`            | no   | `{ email, password }` → `{ token, user }`      |
 | POST   | `/api/logout`           | yes  | Ends the session                               |
 | GET    | `/api/me`               | yes  | Current user                                   |
-| GET    | `/api/products`         | no   | All products                                   |
+| GET    | `/api/products`         | no   | All products (name, category, price, listPrice, rating, reviewCount) |
 | GET    | `/api/cart`             | yes  | Current user's cart                            |
-| PUT    | `/api/cart/:productId`  | yes  | `{ qty }` sets quantity (0 removes)            |
+| PUT    | `/api/cart/:productId`  | yes  | `{ qty }` sets quantity 0–10 (0 removes)       |
 | DELETE | `/api/cart`             | yes  | Empties the cart                               |
 | POST   | `/api/checkout`         | yes  | `{ card: { name, number, expiry, cvv } }` → saved order |
 | GET    | `/api/orders`           | yes  | Current user's orders                          |

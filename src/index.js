@@ -15,6 +15,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
 app.use(cors({ origin: allowedOrigins.includes('*') ? true : allowedOrigins }));
 app.use(express.json());
 
+const MAX_QTY = 10; // most of one item a customer can buy
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validateCredentials(email, password) {
@@ -84,7 +85,15 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/products', (req, res) => {
-  res.json(db.prepare('SELECT id, name, price, emoji FROM products ORDER BY id').all());
+  res.json(
+    db
+      .prepare(
+        `SELECT id, name, category, price, list_price AS listPrice, rating,
+                review_count AS reviewCount, emoji
+         FROM products ORDER BY id`
+      )
+      .all()
+  );
 });
 
 app.get('/api/cart', requireAuth, (req, res) => {
@@ -95,8 +104,8 @@ app.get('/api/cart', requireAuth, (req, res) => {
 app.put('/api/cart/:productId', requireAuth, (req, res) => {
   const productId = Number(req.params.productId);
   const qty = Number(req.body.qty);
-  if (!Number.isInteger(qty) || qty < 0) {
-    return res.status(400).json({ error: 'Quantity must be a whole number of 0 or more.' });
+  if (!Number.isInteger(qty) || qty < 0 || qty > MAX_QTY) {
+    return res.status(400).json({ error: `Quantity must be a whole number from 0 to ${MAX_QTY}.` });
   }
   const product = db.prepare('SELECT 1 FROM products WHERE id = ?').get(productId);
   if (!product) return res.status(404).json({ error: 'Product not found.' });
