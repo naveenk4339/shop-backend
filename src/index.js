@@ -7,7 +7,12 @@ import { chargeCard, newOrderId, validateCard } from './payment.js';
 seedDemoUser();
 
 const app = express();
-app.use(cors());
+// Only the frontend's address may call the API from a browser.
+// Comma-separate several origins, or use * to allow any.
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
+app.use(cors({ origin: allowedOrigins.includes('*') ? true : allowedOrigins }));
 app.use(express.json());
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -73,6 +78,10 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 // --- Products & cart ---
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
 app.get('/api/products', (req, res) => {
   res.json(db.prepare('SELECT id, name, price, emoji FROM products ORDER BY id').all());
