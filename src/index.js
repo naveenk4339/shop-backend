@@ -85,15 +85,14 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/products', (req, res) => {
-  res.json(
-    db
-      .prepare(
-        `SELECT id, name, category, price, list_price AS listPrice, rating,
-                review_count AS reviewCount, emoji
-         FROM products ORDER BY id`
-      )
-      .all()
-  );
+  const products = db
+    .prepare(
+      `SELECT id, name, category, price, list_price AS listPrice, rating,
+              review_count AS reviewCount, emoji, highlights
+       FROM products ORDER BY id`
+    )
+    .all();
+  res.json(products.map((p) => ({ ...p, highlights: JSON.parse(p.highlights) })));
 });
 
 app.get('/api/cart', requireAuth, (req, res) => {
