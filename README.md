@@ -13,7 +13,7 @@ npm start          # or: npm run dev  (restarts on file changes)
 
 The API listens on http://localhost:4000. Check it with `curl http://localhost:4000/api/health`.
 
-A demo account is created on start: `demo@shop.com` / `demo123`.
+A demo account is created on start outside production by default: `demo@shop.com` / `demo123`.
 
 ## Configuration
 
@@ -22,11 +22,13 @@ A demo account is created on start: `demo@shop.com` / `demo123`.
 | `PORT`           | `4000`                   | Port to listen on                                            |
 | `DB_PATH`        | `./shop.db`              | SQLite database file (created automatically)                 |
 | `CORS_ORIGIN`    | `http://localhost:5173`  | Frontend address(es) allowed to call the API; comma-separated, or `*` |
-| `SEED_DEMO_USER` | `true`                   | Set to `false` to skip creating the demo account            |
+| `SEED_DEMO_USER` | `false` with `NODE_ENV=production`, `true` otherwise | Set to `false` to disable demo sign-in and revoke existing demo sessions |
 
 ## API
 
 Authenticated routes need `Authorization: Bearer <token>` (the token comes from login/register).
+Sessions expire 24 hours after login or registration. SQLite stores a SHA-256 hash of each token.
+On startup, unexpired sessions from older databases are converted to hashes without changing the client token.
 
 | Method | Path                    | Auth | Description                                    |
 | ------ | ----------------------- | ---- | ---------------------------------------------- |
