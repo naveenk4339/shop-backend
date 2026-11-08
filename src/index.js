@@ -1,10 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import db from './db.js';
-import { createSession, hashPassword, requireAuth, seedDemoUser, verifyPassword } from './auth.js';
+import { createSession, hashPassword, isDisabledDemoUser, migrateSessions, requireAuth, seedDemoUser, verifyPassword } from './auth.js';
 import { chargeCard, newOrderId, validateCard } from './payment.js';
 
 seedDemoUser();
+migrateSessions();
 
 const app = express();
 // Only the frontend's address may call the API from a browser.
@@ -47,7 +48,9 @@ app.post('/api/register', (req, res) => {
   if (error) return res.status(400).json({ error });
 
   const exists = db.prepare('SELECT 1 FROM users WHERE email = ?').get(email);
-  if (exists) return res.status(409).json({ error: 'An account with this email already exists.' });
+  if (exists || isDisabledDemoUser(email)) {
+    return res.status(409).json({ error: 'An account with this email already exists.' });
+  }
 
   const { lastInsertRowid } = db
     .prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
@@ -63,14 +66,14 @@ app.post('/api/login', (req, res) => {
   if (error) return res.status(400).json({ error });
 
   const user = db.prepare('SELECT id, email, password_hash FROM users WHERE email = ?').get(email);
-  if (!user || !verifyPassword(password, user.password_hash)) {
+  if (!user || isDisabledDemoUser(email) || !verifyPassword(password, user.password_hash)) {
     return res.status(401).json({ error: 'Incorrect email or password.' });
   }
   res.json({ token: createSession(user.id), user: { id: user.id, email: user.email } });
 });
 
 app.post('/api/logout', requireAuth, (req, res) => {
-  db.prepare('DELETE FROM sessions WHERE token = ?').run(req.token);
+  db.prepare('DELETE FROM sessions WHERE token = ?').run(req.sessionKey);
   res.status(204).end();
 });
 
