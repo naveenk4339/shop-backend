@@ -41,6 +41,10 @@ On startup, unexpired sessions from older databases are converted to hashes with
 | GET    | `/api/cart`             | yes  | Current user's cart                            |
 | PUT    | `/api/cart/:productId`  | yes  | `{ qty }` sets quantity 0–10 (0 removes)       |
 | DELETE | `/api/cart`             | yes  | Empties the cart                               |
+| GET    | `/api/saved`            | yes  | Items saved for later                          |
+| POST   | `/api/saved/:productId` | yes  | Move an item from the cart to saved, keeping its quantity → `{ cart, saved }` |
+| POST   | `/api/saved/:productId/move-to-cart` | yes | Move a saved item back to the cart with its quantity (max 10) → `{ cart, saved }` |
+| DELETE | `/api/saved/:productId` | yes  | Remove an item from saved → `{ cart, saved }`  |
 | POST   | `/api/checkout`         | yes  | `{ card: { name, number, expiry, cvv } }` → saved order |
 | GET    | `/api/orders`           | yes  | Current user's orders                          |
 | GET    | `/api/orders/:orderId`  | yes  | One order with its items                       |
@@ -54,7 +58,7 @@ On startup, unexpired sessions from older databases are converted to hashes with
 
 ## Database
 
-SQLite tables: `users`, `sessions`, `products`, `cart_items`, `orders`, `order_items`.
+SQLite tables: `users`, `sessions`, `products`, `cart_items`, `saved_items`, `orders`, `order_items`.
 Amounts are stored in cents. Only the card brand and last 4 digits are saved, never the full number or CVV.
 
 ## Structure

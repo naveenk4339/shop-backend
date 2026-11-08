@@ -39,6 +39,19 @@ function getCart(userId) {
     .all(userId);
 }
 
+function getSaved(userId) {
+  return db
+    .prepare(
+      `SELECT p.id, p.name, p.price, p.emoji, s.qty
+       FROM saved_items s JOIN products p ON p.id = s.product_id
+       WHERE s.user_id = ? ORDER BY s.saved_at DESC, s.rowid DESC`
+    )
+    .all(userId);
+}
+
+// Responses for "Save for later" actions carry both lists, since a move changes both.
+const cartAndSaved = (userId) => ({ cart: getCart(userId), saved: getSaved(userId) });
+
 // --- Auth ---
 
 app.post('/api/register', (req, res) => {
@@ -126,6 +139,55 @@ app.put('/api/cart/:productId', requireAuth, (req, res) => {
 app.delete('/api/cart', requireAuth, (req, res) => {
   db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(req.user.id);
   res.json([]);
+});
+
+// --- Save for later ---
+
+const productExists = (productId) => Boolean(db.prepare('SELECT 1 FROM products WHERE id = ?').get(productId));
+
+app.get('/api/saved', requireAuth, (req, res) => {
+  res.json(getSaved(req.user.id));
+});
+
+// Moves a product out of the cart (if it's there) into the saved list, keeping its quantity.
+const saveForLater = db.transaction((userId, productId) => {
+  const inCart = db.prepare('SELECT qty FROM cart_items WHERE user_id = ? AND product_id = ?').get(userId, productId);
+  db.prepare('DELETE FROM cart_items WHERE user_id = ? AND product_id = ?').run(userId, productId);
+  db.prepare(
+    `INSERT INTO saved_items (user_id, product_id, qty) VALUES (?, ?, ?)
+     ON CONFLICT (user_id, product_id) DO UPDATE SET qty = MIN(qty + excluded.qty, ?)`
+  ).run(userId, productId, inCart?.qty ?? 1, MAX_QTY);
+});
+
+app.post('/api/saved/:productId', requireAuth, (req, res) => {
+  const productId = Number(req.params.productId);
+  if (!productExists(productId)) return res.status(404).json({ error: 'Product not found.' });
+  saveForLater(req.user.id, productId);
+  res.json(cartAndSaved(req.user.id));
+});
+
+// Moves a saved product back to the cart with its saved quantity (never above the limit).
+const moveToCart = db.transaction((userId, saved) => {
+  db.prepare('DELETE FROM saved_items WHERE user_id = ? AND product_id = ?').run(userId, saved.product_id);
+  db.prepare(
+    `INSERT INTO cart_items (user_id, product_id, qty) VALUES (?, ?, MIN(?, ?))
+     ON CONFLICT (user_id, product_id) DO UPDATE SET qty = MIN(qty + excluded.qty, ?)`
+  ).run(userId, saved.product_id, saved.qty, MAX_QTY, MAX_QTY);
+});
+
+app.post('/api/saved/:productId/move-to-cart', requireAuth, (req, res) => {
+  const productId = Number(req.params.productId);
+  const saved = db
+    .prepare('SELECT product_id, qty FROM saved_items WHERE user_id = ? AND product_id = ?')
+    .get(req.user.id, productId);
+  if (!saved) return res.status(404).json({ error: 'That item is not in your saved list.' });
+  moveToCart(req.user.id, saved);
+  res.json(cartAndSaved(req.user.id));
+});
+
+app.delete('/api/saved/:productId', requireAuth, (req, res) => {
+  db.prepare('DELETE FROM saved_items WHERE user_id = ? AND product_id = ?').run(req.user.id, Number(req.params.productId));
+  res.json(cartAndSaved(req.user.id));
 });
 
 // --- Checkout & orders ---

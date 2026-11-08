@@ -37,6 +37,15 @@ db.exec(`
     PRIMARY KEY (user_id, product_id)
   );
 
+  -- Items a shopper moved out of the cart to buy later.
+  CREATE TABLE IF NOT EXISTS saved_items (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    qty        INTEGER NOT NULL DEFAULT 1 CHECK (qty > 0), -- quantity it had in the cart
+    saved_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, product_id)
+  );
+
   -- Amounts are stored in cents to avoid rounding errors.
   -- Only the card brand and last 4 digits are kept, never the full number or CVV.
   CREATE TABLE IF NOT EXISTS orders (
