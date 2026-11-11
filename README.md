@@ -15,6 +15,17 @@ The API listens on http://localhost:4000. Check it with `curl http://localhost:4
 
 A demo account is created on start outside production by default: `demo@shop.com` / `demo123`.
 
+## Tests
+
+```bash
+npm test
+```
+
+Uses Node's built-in test runner (no extra packages):
+
+- `test/payment.test.js`: card validation (Luhn checksum, expiry, CVV, brands), the simulated gateway and order ids
+- `test/api.test.js`: starts the real server on a spare port with a throwaway database and checks sign-in, cart limits, and checkout: empty cart, invalid card, declined card, approved payment with the total computed on the server, order privacy and logout
+
 ## Configuration
 
 | Variable         | Default                  | Purpose                                                      |
