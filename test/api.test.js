@@ -153,6 +153,33 @@ test("a shopper can't read someone else's order", async () => {
   assert.equal((await call('GET', `/orders/${order.id}`, { token: stranger })).status, 404);
 });
 
+test('a shopper can cancel their own order once', async () => {
+  const token = await newUser();
+  await call('PUT', '/cart/4', { token, body: { qty: 2 } });
+  const { data: order } = await call('POST', '/checkout', { token, body: { card: goodCard } });
+
+  const cancelled = await call('POST', `/orders/${order.id}/cancel`, { token });
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.data.status, 'CANCELLED');
+  assert.equal(cancelled.data.totalAmount, order.totalAmount);
+  assert.equal((await call('GET', `/orders/${order.id}`, { token })).data.status, 'CANCELLED');
+
+  const again = await call('POST', `/orders/${order.id}/cancel`, { token });
+  assert.equal(again.status, 409);
+  assert.equal(again.data.error, 'This order has already been cancelled.');
+});
+
+test("a shopper can't cancel someone else's order or a missing one", async () => {
+  const owner = await newUser();
+  await call('PUT', '/cart/6', { token: owner, body: { qty: 1 } });
+  const { data: order } = await call('POST', '/checkout', { token: owner, body: { card: goodCard } });
+  const stranger = await newUser();
+  assert.equal((await call('POST', `/orders/${order.id}/cancel`, { token: stranger })).status, 404);
+  assert.equal((await call('POST', '/orders/ORD-00000000-000000/cancel', { token: owner })).status, 404);
+  assert.equal((await call('POST', `/orders/${order.id}/cancel`)).status, 401);
+  assert.equal((await call('GET', `/orders/${order.id}`, { token: owner })).data.status, 'APPROVED');
+});
+
 test('after logout the token stops working', async () => {
   const token = await newUser();
   assert.equal((await call('POST', '/logout', { token })).status, 204);

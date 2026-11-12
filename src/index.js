@@ -208,6 +208,18 @@ app.get('/api/orders/:orderId', requireAuth, (req, res) => {
   res.json(order);
 });
 
+// Cancels an order that hasn't shipped. Orders here never ship, so any
+// approved order can be cancelled; the refund is simulated like the payment.
+app.post('/api/orders/:orderId/cancel', requireAuth, (req, res) => {
+  const order = getOrder(req.params.orderId, req.user.id);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+  if (order.status !== 'APPROVED') {
+    return res.status(409).json({ error: 'This order has already been cancelled.' });
+  }
+  db.prepare("UPDATE orders SET status = 'CANCELLED' WHERE id = ? AND user_id = ?").run(order.id, req.user.id);
+  res.json(getOrder(order.id, req.user.id));
+});
+
 const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, () => {
   console.log(`Shop API listening on http://localhost:${PORT}`);
