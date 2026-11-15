@@ -77,3 +77,7 @@ src/
   auth.js      password hashing, sessions, demo account
   payment.js   card validation and simulated payment
 ```
+
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs `npm ci` and `npm test` on Node 22 for every pull request and every push to `main`. The result shows as a check on each pull request.
