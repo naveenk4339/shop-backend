@@ -3,6 +3,7 @@ import cors from 'cors';
 import db from './db.js';
 import { createSession, hashPassword, isDisabledDemoUser, migrateSessions, requireAuth, seedDemoUser, verifyPassword } from './auth.js';
 import { chargeCard, newOrderId, validateCard } from './payment.js';
+import { createLoginLimiter } from './loginLimiter.js';
 
 seedDemoUser();
 migrateSessions();
@@ -16,6 +17,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
 app.use(cors({ origin: allowedOrigins.includes('*') ? true : allowedOrigins }));
 app.use(express.json());
 
+const loginLimiter = createLoginLimiter();
 const MAX_QTY = 10; // most of one item a customer can buy
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,10 +67,21 @@ app.post('/api/login', (req, res) => {
   const error = validateCredentials(email, password);
   if (error) return res.status(400).json({ error });
 
+  const wait = loginLimiter.retryAfter(email);
+  if (wait) {
+    res.set('Retry-After', String(wait));
+    const minutes = Math.ceil(wait / 60);
+    return res.status(429).json({
+      error: `Too many failed sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+    });
+  }
+
   const user = db.prepare('SELECT id, email, password_hash FROM users WHERE email = ?').get(email);
   if (!user || isDisabledDemoUser(email) || !verifyPassword(password, user.password_hash)) {
+    loginLimiter.recordFailure(email);
     return res.status(401).json({ error: 'Incorrect email or password.' });
   }
+  loginLimiter.recordSuccess(email);
   res.json({ token: createSession(user.id), user: { id: user.id, email: user.email } });
 });
 
