@@ -55,6 +55,7 @@ On startup, unexpired sessions from older databases are converted to hashes with
 | POST   | `/api/checkout`         | yes  | `{ card: { name, number, expiry, cvv } }` → saved order |
 | GET    | `/api/orders`           | yes  | Current user's orders                          |
 | GET    | `/api/orders/:orderId`  | yes  | One order with its items                       |
+| POST   | `/api/orders/:orderId/cancel` | yes | Cancel an approved order (simulated refund) → updated order; 409 if already cancelled |
 
 ### Test cards
 
