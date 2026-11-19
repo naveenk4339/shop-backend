@@ -25,6 +25,7 @@ Uses Node's built-in test runner (no extra packages):
 
 - `test/payment.test.js`: card validation (Luhn checksum, expiry, CVV, brands), the simulated gateway and order ids
 - `test/api.test.js`: starts the real server on a spare port with a throwaway database and checks sign-in, cart limits, and checkout: empty cart, invalid card, declined card, approved payment with the total computed on the server, order privacy and logout
+- `test/saved.api.test.js`: Save for later: moving items between cart and saved list (quantity kept, 10-item cap), delete, ordering, privacy between shoppers, and that checkout leaves saved items alone
 
 ## Configuration
 
