@@ -15,6 +15,10 @@ The API listens on http://localhost:4000. Check it with `curl http://localhost:4
 
 A demo account is created on start outside production by default: `demo@shop.com` / `demo123`.
 
+## Sign-in protection
+
+After 5 wrong passwords for the same email within 15 minutes, `POST /api/login` refuses that email for 15 minutes with **429** and a `Retry-After` header ("Too many failed sign-in attempts. Try again in 15 minutes."), even if the next password is right. A successful sign-in resets the count. The count is kept in memory (`src/loginLimiter.js`), so it resets when the server restarts; a multi-server deployment would need a shared store.
+
 ## Tests
 
 ```bash
@@ -77,4 +81,5 @@ src/
   db.js        tables and sample products
   auth.js      password hashing, sessions, demo account
   payment.js   card validation and simulated payment
+  loginLimiter.js  limit on repeated failed sign-ins
 ```
