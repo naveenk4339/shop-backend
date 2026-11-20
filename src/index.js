@@ -3,6 +3,7 @@ import cors from 'cors';
 import db from './db.js';
 import { createSession, hashPassword, isDisabledDemoUser, migrateSessions, requireAuth, seedDemoUser, verifyPassword } from './auth.js';
 import { chargeCard, newOrderId, validateCard } from './payment.js';
+import { applyCoupon } from './coupons.js';
 
 seedDemoUser();
 migrateSessions();
@@ -195,7 +196,8 @@ app.delete('/api/saved/:productId', requireAuth, (req, res) => {
 function getOrder(orderId, userId) {
   const order = db
     .prepare(
-      `SELECT id, total_items, total_amount_cents, status, card_brand, card_last4, created_at
+      `SELECT id, total_items, total_amount_cents, status, card_brand, card_last4, created_at,
+              coupon_code, discount_cents
        FROM orders WHERE id = ? AND user_id = ?`
     )
     .get(orderId, userId);
@@ -211,6 +213,9 @@ function getOrder(orderId, userId) {
     status: order.status,
     totalItems: order.total_items,
     totalAmount: order.total_amount_cents / 100,
+    subtotal: (order.total_amount_cents + order.discount_cents) / 100,
+    discount: order.discount_cents / 100,
+    couponCode: order.coupon_code,
     card: { brand: order.card_brand, last4: order.card_last4 },
     createdAt: order.created_at,
     items: items.map((i) => ({
@@ -225,15 +230,31 @@ function getOrder(orderId, userId) {
 
 const saveOrder = db.transaction((orderId, userId, lines, totals, card) => {
   db.prepare(
-    `INSERT INTO orders (id, user_id, total_items, total_amount_cents, status, card_brand, card_last4)
-     VALUES (?, ?, ?, ?, 'APPROVED', ?, ?)`
-  ).run(orderId, userId, totals.items, totals.cents, card.brand, card.last4);
+    `INSERT INTO orders (id, user_id, total_items, total_amount_cents, status, card_brand, card_last4,
+                         coupon_code, discount_cents)
+     VALUES (?, ?, ?, ?, 'APPROVED', ?, ?, ?, ?)`
+  ).run(orderId, userId, totals.items, totals.cents, card.brand, card.last4, totals.couponCode, totals.discountCents);
   const insertItem = db.prepare(
     `INSERT INTO order_items (order_id, product_id, name, unit_price_cents, qty, line_total_cents)
      VALUES (?, ?, ?, ?, ?, ?)`
   );
   for (const l of lines) insertItem.run(orderId, l.id, l.name, l.unitCents, l.qty, l.unitCents * l.qty);
   db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(userId);
+});
+
+// Checks a promo code against the shopper's current cart, so checkout can show the discount.
+app.post('/api/coupons/check', requireAuth, (req, res) => {
+  const subtotalCents = getCart(req.user.id).reduce((sum, l) => sum + Math.round(l.price * 100) * l.qty, 0);
+  if (subtotalCents === 0) return res.status(400).json({ error: 'Your cart is empty.' });
+  const result = applyCoupon(req.body.code, subtotalCents);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({
+    code: result.code,
+    label: result.label,
+    subtotal: subtotalCents / 100,
+    discount: result.discountCents / 100,
+    total: (subtotalCents - result.discountCents) / 100,
+  });
 });
 
 // Pays for the current cart. Totals are always computed from the saved cart,
@@ -245,9 +266,17 @@ app.post('/api/checkout', requireAuth, (req, res) => {
   const { errors, card } = validateCard(req.body.card);
   if (errors) return res.status(400).json({ error: 'Please check your card details.', fields: errors });
 
+  const subtotalCents = lines.reduce((sum, l) => sum + l.unitCents * l.qty, 0);
+  let coupon = null;
+  if (req.body.couponCode) {
+    coupon = applyCoupon(req.body.couponCode, subtotalCents);
+    if (coupon.error) return res.status(400).json({ error: coupon.error, fields: { coupon: coupon.error } });
+  }
   const totals = {
     items: lines.reduce((sum, l) => sum + l.qty, 0),
-    cents: lines.reduce((sum, l) => sum + l.unitCents * l.qty, 0),
+    cents: subtotalCents - (coupon?.discountCents ?? 0),
+    couponCode: coupon?.code ?? null,
+    discountCents: coupon?.discountCents ?? 0,
   };
   const payment = chargeCard(card, totals.cents);
   if (!payment.approved) return res.status(402).json({ error: payment.reason });

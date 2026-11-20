@@ -15,6 +15,15 @@ The API listens on http://localhost:4000. Check it with `curl http://localhost:4
 
 A demo account is created on start outside production by default: `demo@shop.com` / `demo123`.
 
+## Promo codes
+
+| Code       | Discount                     |
+| ---------- | ---------------------------- |
+| `SAVE10`   | 10% off the order            |
+| `WELCOME5` | $5 off orders of $25 or more |
+
+Codes aren't case-sensitive. `POST /api/coupons/check` `{ code }` checks a code against the signed-in shopper's cart and returns the discount and new total. `POST /api/checkout` accepts an optional `couponCode`; the discount is worked out on the server and the order stores `coupon_code` and `discount_cents` (added automatically to existing databases). Orders now also return `subtotal`, `discount` and `couponCode`; `totalAmount` is still the amount charged.
+
 ## Tests
 
 ```bash
@@ -56,7 +65,8 @@ On startup, unexpired sessions from older databases are converted to hashes with
 | POST   | `/api/saved/:productId` | yes  | Move an item from the cart to saved, keeping its quantity → `{ cart, saved }` |
 | POST   | `/api/saved/:productId/move-to-cart` | yes | Move a saved item back to the cart with its quantity (max 10) → `{ cart, saved }` |
 | DELETE | `/api/saved/:productId` | yes  | Remove an item from saved → `{ cart, saved }`  |
-| POST   | `/api/checkout`         | yes  | `{ card: { name, number, expiry, cvv } }` → saved order |
+| POST   | `/api/checkout`         | yes  | `{ card: { name, number, expiry, cvv }, couponCode? }` → saved order |
+| POST   | `/api/coupons/check`    | yes  | `{ code }` → `{ code, label, subtotal, discount, total }` for the current cart; 400 if invalid |
 | GET    | `/api/orders`           | yes  | Current user's orders                          |
 | GET    | `/api/orders/:orderId`  | yes  | One order with its items                       |
 | POST   | `/api/orders/:orderId/cancel` | yes | Cancel an approved order (simulated refund) → updated order; 409 if already cancelled |
