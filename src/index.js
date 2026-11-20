@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import db from './db.js';
+import { applyCoupon } from './coupons.js';
 import { createSession, hashPassword, isDisabledDemoUser, migrateSessions, requireAuth, seedDemoUser, verifyPassword } from './auth.js';
 import { chargeCard, newOrderId, validateCard } from './payment.js';
-import { applyCoupon } from './coupons.js';
 
 seedDemoUser();
 migrateSessions();

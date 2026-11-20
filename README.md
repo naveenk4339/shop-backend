@@ -15,15 +15,6 @@ The API listens on http://localhost:4000. Check it with `curl http://localhost:4
 
 A demo account is created on start outside production by default: `demo@shop.com` / `demo123`.
 
-## Promo codes
-
-| Code       | Discount                     |
-| ---------- | ---------------------------- |
-| `SAVE10`   | 10% off the order            |
-| `WELCOME5` | $5 off orders of $25 or more |
-
-Codes aren't case-sensitive. `POST /api/coupons/check` `{ code }` checks a code against the signed-in shopper's cart and returns the discount and new total. `POST /api/checkout` accepts an optional `couponCode`; the discount is worked out on the server and the order stores `coupon_code` and `discount_cents` (added automatically to existing databases). Orders now also return `subtotal`, `discount` and `couponCode`; `totalAmount` is still the amount charged.
-
 ## Tests
 
 ```bash
@@ -77,6 +68,15 @@ On startup, unexpired sessions from older databases are converted to hashes with
 | --------------------- | -------- |
 | `4242 4242 4242 4242` | Approved |
 | `4000 0000 0000 0002` | Declined |
+
+## Promo codes
+
+| Code       | Discount                     |
+| ---------- | ---------------------------- |
+| `SAVE10`   | 10% off the order            |
+| `WELCOME5` | $5 off orders of $25 or more |
+
+Codes aren't case-sensitive. `POST /api/coupons/check` `{ code }` checks a code against the signed-in shopper's cart and returns the discount and new total. `POST /api/checkout` accepts an optional `couponCode`; the discount is worked out on the server and the order stores `coupon_code` and `discount_cents` (added automatically to existing databases). Orders now also return `subtotal`, `discount` and `couponCode`; `totalAmount` is still the amount charged.
 
 ## Database
 
