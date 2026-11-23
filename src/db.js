@@ -83,6 +83,15 @@ for (const [column, type] of Object.entries(NEW_PRODUCT_COLUMNS)) {
   if (!productColumns.includes(column)) db.exec(`ALTER TABLE products ADD COLUMN ${column} ${type}`);
 }
 
+const orderColumns = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
+const NEW_ORDER_COLUMNS = {
+  coupon_code: 'TEXT', // promo code used, if any
+  discount_cents: 'INTEGER NOT NULL DEFAULT 0', // total_amount_cents is what was charged, after this
+};
+for (const [column, type] of Object.entries(NEW_ORDER_COLUMNS)) {
+  if (!orderColumns.includes(column)) db.exec(`ALTER TABLE orders ADD COLUMN ${column} ${type}`);
+}
+
 // [id, name, category, price, list price (null = no discount), rating, reviews, emoji]
 const SEED_PRODUCTS = [
   [1, 'Fresh Gala Apples, 3 lb Bag', 'Grocery', 4.99, 5.49, 4.6, 2341, '🍎'],
